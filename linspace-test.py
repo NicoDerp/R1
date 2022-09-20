@@ -1,0 +1,1 @@
+from pylab import *;f=lambda:float(input());x=linspace(-10, 10, 1001);plot(x,f()*x**2+f()*x+f());show()
