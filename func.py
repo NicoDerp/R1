@@ -6,26 +6,33 @@ import types
 __functions = {}
 
 class Function():
-    def __init__(self, func, space=(-10, 10, 1001), dx=0.001, label=None):
+    def __init__(self, func, name=None, space=(-10, 10, 1001), dx=0.001):
         if isinstance(func, str):
+            self.name = ""
+            for c in func:
+                if c == "("
             self.func = eval("lambda x:" + func, np.__dict__)
             self.funcs = func
+
         elif isinstance(func, types.FunctionType):
+            if not name:
+                raise ValueError("Func is function but no name supplied!")
+
             self.func = func
             self.funcs = None
+            self.name = name
+
         else:
             raise ValueError("Func isn't string or lambda!")
-
-        self.space = space
 
         if len(space) != 3:
             raise ValueError("len(space) isn't 3")
 
+        self.space = space
+
         self.lin = linspace(*space)
         self.dx = dx
     
-        self.label = label
-
         __functions.append(self)
         
     def __call__(self, x):
@@ -34,17 +41,8 @@ class Function():
     def __ddx(self):
         f = lambda x: (self.func(x + self.dx) - self.func(x)) / self.dx
         func = self.copy().setFunc(f)
-        if func.label:
-            func.label += "'"
+        func.name += "'"
         return func
-
-    def __getname(self):
-        if self.label != None:
-            return self.label
-
-        l = [k for k,v in globals().items() if v is self]
-        self.label = l[0] if len(l) != 0 else ""
-        return self.label
 
     def ddx(self, n=1):
         self.__getname()
@@ -54,18 +52,14 @@ class Function():
         return f
 
     def copy(self):
-        return Function(func=self.func, space=self.space, dx=self.dx, label=self.label)
+        return Function(func=self.func, space=self.space, dx=self.dx)
 
     def setFunc(self, func):
         self.func = func
         return self
 
     def plot(self):
-        l = self.__getname()
-        if l:
-            plot(self.lin, self.func(self.lin), label=l)
-        else:
-            plot(self.lin, self.func(self.lin))
+        plot(self.lin, self.func(self.lin), label=self.name)
 
 
 f = Function("f(x) = 2*x**3 - 6*x**2 - 2*x + 6")
