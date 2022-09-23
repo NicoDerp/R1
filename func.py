@@ -6,7 +6,7 @@ import types
 __functions = {}
 
 class Function():
-    def __init__(self, func, name=None, space=(-10, 10, 1001), dx=0.001):
+    def __init__(self, func, name=None, space=(-10, 10, 1001), dx=10**-10):
         if isinstance(func, str):
             self.name = ""
             for c in func:
