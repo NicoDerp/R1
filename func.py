@@ -61,9 +61,13 @@ class Function():
     def plot(self):
         plot(self.lin, self.func(self.lin), label=self.name)
 
+def solve(s):
+    pass
 
 f = Function("f(x) = 2*x**3 - 6*x**2 - 2*x + 6")
 g = Function("g(x) = x**2")
+
+#solve("f(x) = g(x)")
 
 f.plot()
 f.ddx().plot()
