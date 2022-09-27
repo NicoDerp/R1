@@ -3,10 +3,11 @@ import numpy as np
 
 
 class Expr:
-    def __init__(self, name="", *args, skip=False, is_int=False, is_symbol=False):
+    def __init__(self, name="", *args, skip=False, is_int=False, is_symbol=False, is_negative=False):
         self.classname = name
         if not skip:
             self.args = args
+            self.is_negative = False
         self.is_int = is_int
         self.is_symbol = is_symbol
         self._is_number = False
@@ -69,7 +70,7 @@ class Expr:
 
 class Integer(Expr):
     def __init__(self, n):
-        super().__init__("Integer", is_int=True)
+        super().__init__("Integer", is_int=True, is_negative=(n<0))
         self.n = n
 
     def tryInt(n):
@@ -94,6 +95,7 @@ class Integer(Expr):
 # Symbols like a, b, x, y
 class Symbol(Expr):
     def __init__(self, s):
+
         super().__init__("Symbol", is_symbol=True)
         self.s = s
 
@@ -111,8 +113,12 @@ class Symbol(Expr):
 # a**b
 class Pow(Expr):
     def __new__(cls, base, exp, evaluate=True):
+
         base = Integer.tryInt(base)
         exp = Integer.tryInt(exp)
+
+        print(base, type(base), base.is_int)
+        print(exp, type(exp), exp.is_int)
 
         # If exponent is 1 then set object to base instead of Pow(base, 1)
         if exp.is_int and exp.n == 1:
@@ -157,6 +163,9 @@ class Pow(Expr):
         if self.result:
             return f"{self.result}"
 
+        if not isinstance(self.base, Integer):
+            return f"({self.base})**{self.exp}"
+
         return f"{self.base}**{self.exp}"
 
 class Mul(Expr):
@@ -190,6 +199,9 @@ class Mul(Expr):
         if len(obj.args) == 1:
             return obj.args[0]
 
+        if obj.args[0] == -1:
+            obj.is_negative = True
+
         # Nothing more can be done just return normal Mul(*args)
         return obj
 
@@ -208,6 +220,9 @@ class Mul(Expr):
         if len(self.args) == 1:
             first = Integer(1)
             last = self.args[0]
+        elif len(self.args) == 2:
+            first = self.args[0]
+            last = self.args[1]
         else:
             first = self.args[0]
             last = Mul(*[arg for arg in self.args[1:]])
@@ -260,12 +275,20 @@ class Mul(Expr):
             new_args = [Integer(consts)]
         for base in d:
             exp = d[base]
-            new_args.append(Pow(base, exp))
+            if exp == 0:
+                pass # Nothing 1*x = x
+            elif exp == 1:
+                new_args.append(base)
+            else:
+                new_args.append(Pow(base, exp))
 
         return tuple(new_args)
 
     def format(self):
-        return "*".join(f"{arg}" if arg.is_int or arg.is_symbol else f"({arg})" for arg in self.args)
+        npar = lambda a: a.is_int or a.is_symbol
+        if self.is_negative:
+            return "-"+"*".join(f"{arg}" if npar(arg) else f"({arg})" for arg in self.args[1:])
+        return "*".join(f"{arg}" if npar else f"({arg})" for arg in self.args)
 
     def flatten(self, obj=None):
         if obj == None:
@@ -314,7 +337,18 @@ class Add(Expr):
         super().__init__("Add", skip=True)
 
     def format(self):
-        return " + ".join(f"{arg}" for arg in self.args)
+        string = str(self.args[0])
+        for i, arg in enumerate(self.args[1:]):
+            if arg.is_negative:
+                #sign = " - "
+                sign = ""
+                s = str(arg)
+            else:
+                sign = " + "
+                s = str(arg)
+
+            string += sign + s
+        return string
 
     def as_coeff(self):
         d = {}
@@ -348,7 +382,12 @@ class Add(Expr):
 
         for expr in d:
             coeff = d[expr]
-            new_args.append(Mul(expr, coeff))
+            if coeff == 0:
+                pass # 0*expr = 0
+            elif coeff == 1:
+                new_args.append(expr) # 1*expr = expr
+            else:
+                new_args.append(Mul(expr, coeff))
 
         return tuple(new_args)
 
@@ -365,9 +404,9 @@ class Add(Expr):
 
         return new_args
 
-x = Symbol("x")
-#a = Add(x, x, Mul(x, x), Mul(x, x))
-#print(a)
-print(Add(x, Add(x, Add(x, x))))
+a = Symbol("a")
+b = Symbol("b")
 
+#print(a-b)
+print(Pow(a+b, 2))
 

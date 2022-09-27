@@ -3,10 +3,9 @@ from pylab import *
 
 
 def f(x):
-    return 2*log(x**4 + 4) - 0.5*x
+    return 0.5 * x**3 - 2*x**2 + 1
 
-
-def zero(func, space, accuracy=10**-5, max_iterations = 100):
+def zero(func, space, accuracy=10**-5, max_iterations = 1000):
     a, b = space
 
     i = 0
@@ -22,9 +21,10 @@ def zero(func, space, accuracy=10**-5, max_iterations = 100):
 
     return m
 
-s = zero(f, (-10, 80))
+s = zero(f, (1, 5))
+print(s)
 
-x = linspace(-10, 80, 1001)
+x = linspace(-3, 4, 1001)
 y = f(x)
 
 plot(x, y)
