@@ -3,9 +3,10 @@ import numpy as np
 
 
 class Expr:
-    def __init__(self, name="", *args, is_int=False, is_symbol=False):
+    def __init__(self, name="", *args, skip=False, is_int=False, is_symbol=False):
         self.classname = name
-        self.args = args
+        if not skip:
+            self.args = args
         self.is_int = is_int
         self.is_symbol = is_symbol
         self._is_number = False
@@ -80,7 +81,7 @@ class Integer(Expr):
     def format(self):
         return f"{self.n}"
 
-    def __hash(self):
+    def __hash__(self):
         return hash(self.n)
 
     def __eq__(self, other):
@@ -144,6 +145,14 @@ class Pow(Expr):
         if self.base.is_int and self.exp.is_int:
             self.result = self.base.n ** self.exp.n
 
+    def __hash__(self):
+        return hash(tuple(self.args))
+
+    def __eq__(self, other):
+        if not isinstance(other, Pow):
+            return NotImplemented
+        return self.base == other.base and self.exp == self.exp
+
     def format(self):
         if self.result:
             return f"{self.result}"
@@ -151,22 +160,77 @@ class Pow(Expr):
         return f"{self.base}**{self.exp}"
 
 class Mul(Expr):
-    def __init__(self, *args, evaluate=True):
-        super().__init__("Mul", *args)
+    def __new__(cls, *args, evaluate=True):
+
+        # If there are no arguments it is zero
+        #if len(args) == 0:
+        #    obj = super(Expr, cls).__new__(Integer)
+        #    obj.__init__(0)
+        #    return obj
+
+        obj = super(Expr, cls).__new__(cls)
+        obj.args = args
 
         if not evaluate:
-            return
+            return obj
 
         # 1. Flattening
-        self.args = self.flatten()
+        obj.args = obj.flatten()
 
         # 2. Identity Removing
-        self.args = [Integer.tryInt(arg) for arg in self.args if arg != 1]
+        obj.args = [Integer.tryInt(arg) for arg in obj.args if arg != 1]
 
         # 3. Exponent Collecting
-        self.args = self.as_exp()
+        obj.args = obj.as_exp()
+
+        # 4. Term Sorting
+        obj.args = obj.as_ordered()
+
+        # If there is a single result return result (already either Integer or another Expr)
+        if len(obj.args) == 1:
+            return obj.args[0]
+
+        # Nothing more can be done just return normal Mul(*args)
+        return obj
+
+    def __init__(self, *args, evaluate=True):
+        super().__init__("Mul", skip=True)
+
+    def __hash__(self):
+        return hash(tuple(self.args))
+
+    def __eq__(self, other):
+        if not isinstance(other, Mul):
+            return NotImplemented
+        return self.args == other.args
+
+    def as_two_terms(self):
+        if len(self.args) == 1:
+            first = Integer(1)
+            last = self.args[0]
+        else:
+            first = self.args[0]
+            last = Mul(*[arg for arg in self.args[1:]])
+
+        return first, last
+
+    def as_ordered(self):
+        new_args = []
+
+        # First constants
+        for arg in self.args:
+            if arg.is_int:
+                new_args.append(arg)
+
+        # Then symbols
+        for arg in self.args:
+            if not arg.is_int:
+                new_args.append(arg)
+
+        return new_args
 
     def as_exp(self):
+        consts = 1
         d = {}
         for arg in self.args:
             if isinstance(arg, Pow):
@@ -176,10 +240,7 @@ class Mul(Expr):
                     d[arg.base] = arg.exp
 
             elif isinstance(arg, Integer):
-                if any(arg == k for k in d.keys()):
-                    d[arg.n] += 1
-                else:
-                    d[arg.n] = 1
+                consts *= arg.n
 
             elif isinstance(arg, Symbol):
                 if arg in d.keys():
@@ -193,7 +254,10 @@ class Mul(Expr):
                 else:
                     d[arg] = 1
 
-        new_args = []
+        if consts == 1:
+            new_args = []
+        else:
+            new_args = [Integer(consts)]
         for base in d:
             exp = d[base]
             new_args.append(Pow(base, exp))
@@ -227,6 +291,9 @@ class Add(Expr):
         obj = super(Expr, cls).__new__(cls)
         obj.args = args
 
+        if not evaluate:
+            return obj
+
         # 1. Flattening
         obj.args = obj.flatten()
 
@@ -236,16 +303,15 @@ class Add(Expr):
         # 3. Coefficient Collecting
         obj.args = obj.as_coeff()
 
-        # If there is a single result return Integer(result)
+        # If there is a single result return result (already either Integer or another Expr)
         if len(obj.args) == 1:
-            return Integer(*obj.args)
+            return obj.args[0]
 
         # Nothing more can be done just return normal Add(*args)
         return obj
 
     def __init__(self, *args, evaluate=True):
-        pass
-    #    super().__init__("Add", *args)
+        super().__init__("Add", skip=True)
 
     def format(self):
         return " + ".join(f"{arg}" for arg in self.args)
@@ -259,13 +325,27 @@ class Add(Expr):
             if arg.is_int:
                 consts += arg.n
 
+            elif isinstance(arg, Mul):
+                first, last = arg.as_two_terms()
+
+                #if any(last == k for k in d.keys()):
+                if last in d:
+                    d[last] += first
+                else:
+                    d[last] = first
+
             else:
-                if any(arg == k for k in d.keys()):
+                #if any(arg == k for k in d.keys()):
+                if arg in d:
                     d[arg] += 1
                 else:
                     d[arg] = 1
 
-        new_args = [Integer(consts)]
+        if consts == 0:
+            new_args = []
+        else:
+            new_args = [Integer(consts)]
+
         for expr in d:
             coeff = d[expr]
             new_args.append(Mul(expr, coeff))
@@ -277,14 +357,17 @@ class Add(Expr):
             obj = self
 
         new_args = []
-        for arg in self.args:
+        for arg in obj.args:
             if isinstance(arg, Add):
-                new_args += self.flatten(arg)
+                new_args += self.flatten(obj=arg)
             else:
                 new_args.append(arg)
+
         return new_args
 
 x = Symbol("x")
-a = Add(x, x, 2, 3)
-print(a)
+#a = Add(x, x, Mul(x, x), Mul(x, x))
+#print(a)
+print(Add(x, Add(x, Add(x, x))))
+
 
