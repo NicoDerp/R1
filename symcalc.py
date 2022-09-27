@@ -117,9 +117,6 @@ class Pow(Expr):
         base = Integer.tryInt(base)
         exp = Integer.tryInt(exp)
 
-        print(base, type(base), base.is_int)
-        print(exp, type(exp), exp.is_int)
-
         # If exponent is 1 then set object to base instead of Pow(base, 1)
         if exp.is_int and exp.n == 1:
             return base
@@ -136,20 +133,13 @@ class Pow(Expr):
 
         # Nothing more can be done just return normal Pow(base, exp)
         obj = super(Expr, cls).__new__(cls)
+        obj.base = base
+        obj.exp = exp
+
         return obj
 
     def __init__(self, base, exp, evaluate=True):
-        super().__init__("Pow", base, exp)
-        self.base = Integer.tryInt(base)
-        self.exp = Integer.tryInt(exp)
-
-        self.result = None
-
-        if not evaluate:
-            return
-
-        if self.base.is_int and self.exp.is_int:
-            self.result = self.base.n ** self.exp.n
+        super().__init__("Pow", self.base, self.exp)
 
     def __hash__(self):
         return hash(tuple(self.args))
@@ -160,13 +150,10 @@ class Pow(Expr):
         return self.base == other.base and self.exp == self.exp
 
     def format(self):
-        if self.result:
-            return f"{self.result}"
+        if self.base.is_int or self.base.is_symbol:
+            return f"{self.base}**{self.exp}"
 
-        if not isinstance(self.base, Integer):
-            return f"({self.base})**{self.exp}"
-
-        return f"{self.base}**{self.exp}"
+        return f"({self.base})**{self.exp}"
 
 class Mul(Expr):
     def __new__(cls, *args, evaluate=True):
@@ -179,6 +166,7 @@ class Mul(Expr):
 
         obj = super(Expr, cls).__new__(cls)
         obj.args = args
+        obj.is_negative = False
 
         if not evaluate:
             return obj
@@ -288,7 +276,7 @@ class Mul(Expr):
         npar = lambda a: a.is_int or a.is_symbol
         if self.is_negative:
             return "-"+"*".join(f"{arg}" if npar(arg) else f"({arg})" for arg in self.args[1:])
-        return "*".join(f"{arg}" if npar else f"({arg})" for arg in self.args)
+        return "*".join(f"{arg}" if npar(arg) else f"({arg})" for arg in self.args)
 
     def flatten(self, obj=None):
         if obj == None:
@@ -406,7 +394,6 @@ class Add(Expr):
 
 a = Symbol("a")
 b = Symbol("b")
-
-#print(a-b)
-print(Pow(a+b, 2))
+p = 2 * (a + b**2)
+print(p)
 
