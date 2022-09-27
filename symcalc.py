@@ -68,6 +68,9 @@ class Expr:
             return NotImplemented
         return Add(Mul(self, -1), other)
 
+    #def __neg__(self):
+    #    return Mul(self, -1)
+
 class Integer(Expr):
     def __init__(self, n):
         super().__init__("Integer", is_int=True, is_negative=(n<0))
@@ -225,10 +228,31 @@ class Mul(Expr):
             if arg.is_int:
                 new_args.append(arg)
 
+        sorted_args = {}
+        other_args = []
+
         # Then symbols
         for arg in self.args:
-            if not arg.is_int:
-                new_args.append(arg)
+            if arg.is_int:
+                continue
+
+            if isinstance(arg, Pow):
+                if arg.base.is_symbol:
+                    sorted_args[arg.base.s] = arg
+                else:
+                    other_args.append(arg)
+
+            elif arg.is_symbol:
+                sorted_args[arg.s] = arg
+            else:
+                other_args.append(arg)
+
+        sorted_args = dict(sorted(sorted_args.items()))
+        for s in sorted_args:
+            arg = sorted_args[s]
+            new_args.append(arg)
+
+        new_args += other_args
 
         return new_args
 
@@ -314,6 +338,10 @@ class Add(Expr):
         # 3. Coefficient Collecting
         obj.args = obj.as_coeff()
 
+        # Result is 0
+        #if len(obj.args) == 0:
+        #    return Integer(0)
+
         # If there is a single result return result (already either Integer or another Expr)
         if len(obj.args) == 1:
             return obj.args[0]
@@ -392,8 +420,8 @@ class Add(Expr):
 
         return new_args
 
-a = Symbol("a")
-b = Symbol("b")
-p = 2 * (a + b**2)
+x = Symbol("x")
+y = Symbol("y")
+p = y*x*2
 print(p)
 
