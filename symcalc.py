@@ -1,6 +1,4 @@
 
-import numpy as np
-
 
 class Expr:
     def __init__(self, name="", *args, skip=False, is_int=False, is_symbol=False, is_negative=False):
@@ -68,8 +66,8 @@ class Expr:
             return NotImplemented
         return Add(Mul(self, -1), other)
 
-    #def __neg__(self):
-    #    return Mul(self, -1)
+    def __neg__(self):
+        return Mul(self, -1)
 
 class Integer(Expr):
     def __init__(self, n):
@@ -339,8 +337,8 @@ class Add(Expr):
         obj.args = obj.as_coeff()
 
         # Result is 0
-        #if len(obj.args) == 0:
-        #    return Integer(0)
+        if len(obj.args) == 0:
+            return Integer(0)
 
         # If there is a single result return result (already either Integer or another Expr)
         if len(obj.args) == 1:
