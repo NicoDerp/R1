@@ -75,6 +75,11 @@ class Expr:
     def __neg__(self):
         return Mul(self, -1)
 
+class Constant(Expr):
+    def __init__(self, n):
+        super().__init__("Constant")
+        self.n = n
+
 class Integer(Expr):
     def __init__(self, n):
         super().__init__("Integer", is_int=True, is_negative=(n<0))
@@ -321,11 +326,24 @@ class Mul(Expr):
         return tuple(new_args)
 
     def format(self):
-        npar = lambda a: a.is_int or a.is_symbol
+        npar = lambda a: a.is_int or a.is_symbol or isinstance(a, Pow)
         #npar = lambda a: a
-        if self.is_negative:
-            return "-"+" * ".join(f"{arg}" if npar(arg) else f"({arg})" for arg in self.args[1:])
-        return " * ".join(f"{arg}" if npar(arg) else f"({arg})" for arg in self.args)
+        int_counter = 0
+        for arg in self.args:
+            if arg.is_int:
+                int_counter += 1
+            if int_counter > 1:
+                break
+
+        is_compact = (int_counter <= 1) and all([arg.is_symbol or isinstance(arg, Pow) or arg.is_int for arg in self.args])
+        if is_compact:
+            if self.is_negative:
+                return "-"+"".join(f"{arg}" if npar(arg) else f"({arg})" for arg in self.args[1:])
+            return "".join(f"{arg}" if npar(arg) else f"({arg})" for arg in self.args)
+        else:
+            if self.is_negative:
+                return "-"+" * ".join(f"{arg}" if npar(arg) else f"({arg})" for arg in self.args[1:])
+            return " * ".join(f"{arg}" if npar(arg) else f"({arg})" for arg in self.args)
 
     def flatten(self, obj=None):
         if obj == None:
@@ -394,10 +412,9 @@ class Add(Expr):
         return string
 
     def as_ordered(self):
-        new_args = []
-
-        sorted_args = {}
-        sorted_mul_args = {}
+        sorted_pow_args = {}
+        sorted_symbol_args = {}
+        mul_args = []
         other_args = []
 
         # Then symbols
@@ -407,33 +424,44 @@ class Add(Expr):
 
             if isinstance(arg, Pow):
                 if arg.base.is_symbol:
-                    sorted_args[arg.base.s] = arg
+                    sorted_pow_args[arg.base.s] = arg
                     print("Pow:", arg.base.s, arg)
                 else:
                     other_args.append(arg)
                     
             elif isinstance(arg, Mul):
-                c, v = arg.as_two_terms()
-                sorted_mul_args[v] = c
+                #c, v = arg.as_two_terms()
+                #sorted_mul_args[c] = arg
+                mul_args.append(arg)
 
             elif arg.is_symbol:
-                sorted_args[arg.s] = arg
+                sorted_symbol_args[arg.s] = arg
             else:
                 other_args.append(arg)
 
-        sorted_args = dict(sorted(sorted_args.items()))
-        for s in sorted_args:
-            arg = sorted_args[s]
-            new_args.append(arg)
-            
-        print(sorted_args)
-        print(sorted_mul_args)
+        new_args = []
+
+        print(sorted_pow_args)
+        print(mul_args)
+        print(sorted_symbol_args)
         print(other_args)
         print()
-        
-        sorted_mul_args = dict(sorted(sorted_mul_args.items()))
-        for s in sorted_mul_args:
-            arg = sorted_mul_args[s]
+
+        sorted_pow_args = dict(sorted(sorted_pow_args.items()))
+        for s in sorted_pow_args:
+            arg = sorted_pow_args[s]
+            new_args.append(arg)
+
+        #sorted_mul_args = dict(sorted(sorted_mul_args.items()))
+        #for s in sorted_mul_args:
+            #arg = sorted_mul_args[s]
+            #new_args.append(arg)
+
+        new_args += mul_args
+
+        sorted_symbol_args = dict(sorted(sorted_symbol_args.items()))
+        for s in sorted_symbol_args:
+            arg = sorted_symbol_args[s]
             new_args.append(arg)
 
         # Constants
@@ -535,9 +563,11 @@ class Add(Expr):
         return new_args
 
 x = Symbol("x")
+y = Symbol("y")
 
 #p = x*(1+x)
-p = x**2 + x + x
+p = 3*x**2
+#p = Add(Pow(x, 2), Mul(x, 2, 2, y))
 print(p)
 
 
