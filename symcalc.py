@@ -66,6 +66,12 @@ class Expr:
             return NotImplemented
         return Add(Mul(self, -1), other)
 
+    def __truediv__(self, other):
+        other = Integer.tryInt(other)
+        if not issubclass(type(other), Expr):
+            return NotImplemented
+        return Mul(self, Pow(other, -1))
+
     def __neg__(self):
         return Mul(self, -1)
 
@@ -151,10 +157,16 @@ class Pow(Expr):
         return self.base == other.base and self.exp == self.exp
 
     def format(self):
+        b = f"({self.base})"
+        e = f"({self.exp})"
+        
         if self.base.is_int or self.base.is_symbol:
-            return f"{self.base}**{self.exp}"
+            b = f"{self.base}"
+        
+        if self.exp.is_int or self.exp.is_symbol:
+            e = f"{self.exp}"
 
-        return f"({self.base})**{self.exp}"
+        return f"{b}**{e}"
 
 class Mul(Expr):
     def __new__(cls, *args, evaluate=True):
@@ -187,6 +199,20 @@ class Mul(Expr):
         # If there is a single result return result (already either Integer or another Expr)
         if len(obj.args) == 1:
             return obj.args[0]
+        
+        new_objs = []
+        
+        # 5. Multiplying parenthesis
+        first = obj.args[0]
+        second = obj.args[1]
+        #if isinstance(second, Add):
+        #    for arg in second.args:
+        #        new_objs.append(Mul(first, arg))
+        #        print("Mul:", new_objs[-1])
+    
+        #    a = Add(*new_objs)
+        #    print("a", a)
+        #    return a
 
         if obj.args[0] == -1:
             obj.is_negative = True
@@ -296,9 +322,10 @@ class Mul(Expr):
 
     def format(self):
         npar = lambda a: a.is_int or a.is_symbol
+        #npar = lambda a: a
         if self.is_negative:
-            return "-"+"*".join(f"{arg}" if npar(arg) else f"({arg})" for arg in self.args[1:])
-        return "*".join(f"{arg}" if npar(arg) else f"({arg})" for arg in self.args)
+            return "-"+" * ".join(f"{arg}" if npar(arg) else f"({arg})" for arg in self.args[1:])
+        return " * ".join(f"{arg}" if npar(arg) else f"({arg})" for arg in self.args)
 
     def flatten(self, obj=None):
         if obj == None:
@@ -317,8 +344,7 @@ class Add(Expr):
 
         # If there are no arguments it is zero
         if len(args) == 0:
-            obj = super(Expr, cls).__new__(Integer)
-            obj.__init__(0)
+            obj = Integer(0)
             return obj
 
         obj = super(Expr, cls).__new__(cls)
@@ -335,6 +361,9 @@ class Add(Expr):
 
         # 3. Coefficient Collecting
         obj.args = obj.as_coeff()
+
+        # 4. Term Sorting
+        obj.args = obj.as_ordered()
 
         # Result is 0
         if len(obj.args) == 0:
@@ -363,6 +392,93 @@ class Add(Expr):
 
             string += sign + s
         return string
+
+    def as_ordered(self):
+        new_args = []
+
+        sorted_args = {}
+        sorted_mul_args = {}
+        other_args = []
+
+        # Then symbols
+        for arg in self.args:
+            if arg.is_int:
+                continue
+
+            if isinstance(arg, Pow):
+                if arg.base.is_symbol:
+                    sorted_args[arg.base.s] = arg
+                    print("Pow:", arg.base.s, arg)
+                else:
+                    other_args.append(arg)
+                    
+            elif isinstance(arg, Mul):
+                c, v = arg.as_two_terms()
+                sorted_mul_args[v] = c
+
+            elif arg.is_symbol:
+                sorted_args[arg.s] = arg
+            else:
+                other_args.append(arg)
+
+        sorted_args = dict(sorted(sorted_args.items()))
+        for s in sorted_args:
+            arg = sorted_args[s]
+            new_args.append(arg)
+            
+        print(sorted_args)
+        print(sorted_mul_args)
+        print(other_args)
+        print()
+        
+        sorted_mul_args = dict(sorted(sorted_mul_args.items()))
+        for s in sorted_mul_args:
+            arg = sorted_mul_args[s]
+            new_args.append(arg)
+
+        # Constants
+        for arg in self.args:
+            if arg.is_int:
+                new_args.append(arg)
+
+        new_args += other_args
+
+        return new_args
+
+    def as_ordereda(self):
+        new_args = []
+        sorted_args = {}
+        other_args = []
+
+        # First symbols
+        for arg in self.args:
+            if arg.is_int:
+                continue
+
+            if isinstance(arg, Pow):
+                if arg.base.is_symbol:
+                    sorted_args[arg.base.s] = arg
+                else:
+                    other_args.append(arg)
+
+            elif arg.is_symbol:
+                sorted_args[arg.s] = arg
+            else:
+                other_args.append(arg)
+
+        sorted_args = dict(sorted(sorted_args.items()))
+        for s in sorted_args:
+            arg = sorted_args[s]
+            new_args.append(arg)
+        
+        # Then constants
+        for arg in self.args:
+            if arg.is_int:
+                new_args.append(arg)
+
+        new_args += other_args
+
+        return new_args
 
     def as_coeff(self):
         d = {}
@@ -419,7 +535,9 @@ class Add(Expr):
         return new_args
 
 x = Symbol("x")
-y = Symbol("y")
-p = y*x*2
+
+#p = x*(1+x)
+p = x**2 + x + x
 print(p)
+
 
