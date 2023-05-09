@@ -21,39 +21,20 @@ class Function:
     def __call__(self, x):
         return self.f(x)
 
-class Linear(Function):
-    def __init__(self, a, b, x=None, y=None):
-        self.f = lambda x: a*x + b
-        self.a = a
-        self.b = b
-        self.degree = 1
-        super().__init__(self.f, x, y)
-    
-    def prettify(self):
-        if round(self.a, 2) == 1.0:
-            s = "x"
-        else:
-            s = f"{self.a:.2f}x"
-        
-        if round(self.b, 2) == 0:
-            pass
-        elif self.b < 0:
-            s += f" - {-self.b:.2f}"
-        else:
-            s += f" + {self.b:.2f}"
-        return s
-
 class Polynomial(Function):
     def __init__(self, coeffs, degree, x=None, y=None):
         self.f = lambda x: sum([coeffs[i]*x**i for i in range(degree+1)])
         self.coeffs = coeffs
+        self.consts = [[] for i in range(degree+1)]
         self.degree = degree
         super().__init__(self.f, x, y)
     
     def prettify(self):
+        print(self.coeffs)
         s = ""
         for i in range(self.degree, -1, -1):
             c = self.coeffs[i]
+            
             if c == 0:
                 continue
             
@@ -68,18 +49,36 @@ class Polynomial(Function):
             
             if i == 0:
                 s += f"{c:.2f}"
+                for n in self.consts[i]:
+                    s += f"{n}"
             elif i == 1:
                 if round(c, 2) == 1.0:
+                    for n in self.consts[i]:
+                        s += f"{n}"
                     s += "x"
                 else:
-                    s += f"{c:.2f}x"
+                    s += f"{c:.2f}"
+                    for n in self.consts[i]:
+                        s += f"{n}"
+                    s += "x"
+            elif round(c, 2) == 1.0:
+                for n in self.consts[i]:
+                    s += f"{n}"
+                s += f"x^{i}"
             else:
-                if round(c, 2) == 1.0:
-                    s += f"{c:.2f}x^{i}"
-                else:
-                    s += f"x^{i}"
+                s += f"{c:.2f}"
+                for n in self.consts[i]:
+                    s += f"{n}"
+                s += f"x^{i}"
 
+        print(s)
         return s
+
+class Linear(Polynomial):
+    def __init__(self, a, b, x=None, y=None):
+        self.a = a
+        self.b = b
+        super().__init__([b, a], 1, x, y)
 
 class Equation:
     def __init__(self, *args):
@@ -125,28 +124,48 @@ def parsePolynomial(s):
                     # Optional desimaltall eller et tall
                     r"(\d+\.\d+|\d+|)?"
                     
-                    # Et optional gangetegn
-                    r"\*?"
-                    
-                    # Optional konstanter (bokstaver)
-                    r"[a-zA-Z]*"
-            
-                    # Et optional gangetegn
-                    r"\*?"
-            
-                    # x med optional (**|^)
                     r"(?:"
-                        # x
-                        r"x"
-                        
-                        # Optional
+                        # (En bokstav som ikke er x, y eller z. mellomrom) minst en gang
+                        r"([a-wA-W][\s]*)+"
+                
+                        # Et gangetegn
+                        r"\*"
+                
+                        # x med optional (**|^)
                         r"(?:"
-                            # ^ eller **
-                            r"(?:\^|\*\*)"
+                            # x
+                            r"x"
                             
-                            # Et tall
-                            f"(\d+)"
-                        r")?"
+                            # Optional
+                            r"(?:"
+                                # ^ eller **
+                                r"(?:\^|\*\*)"
+                                
+                                # Et tall
+                                f"(\d+)"
+                            r")?"
+                        r")"
+                        
+                        # Eller
+                        f"|"
+                
+                        # Et optional gangetegn
+                        r"\*?"
+                
+                        # x med optional (**|^)
+                        r"(?:"
+                            # x
+                            r"x"
+                            
+                            # Optional
+                            r"(?:"
+                                # ^ eller **
+                                r"(?:\^|\*\*)"
+                                
+                                # Et tall
+                                f"(\d+)"
+                            r")?"
+                        r")"
                     r")"
                 r")"
                 
@@ -182,11 +201,12 @@ def parsePolynomial(s):
         print(match, f"{a}x^{b}")
         
         if b in coeffs:
-            coeffs[b].append(a)
+            coeffs[b] += a
         else:
-            coeffs[b] = [a]
+            coeffs[b] = a
     
     print(coeffs)
+    exit()
     degree = len(coeffs)-1
     if degree == 1:
         return Linear(coeffs[1], coeffs[0])
@@ -310,7 +330,7 @@ def polynomial(degree, X, Y, maxIterations=100000):
             print(error)
         #print(Y)
         
-        if error < 0.000001:
+        if error < 0.0000001:
             break
         
         if any(np.isnan(coeffs)):
@@ -322,7 +342,7 @@ def polynomial(degree, X, Y, maxIterations=100000):
             
         lastError = error
 
-    return Polynomial([[c] for c in coeffs], degree, X, Y)
+    return Polynomial([c for c in coeffs], degree, X, Y)
 
 def solveEquations(equations, maxIterations=100000):
     coeffs = [0 for i in range(degree+1)]
@@ -378,7 +398,7 @@ def plotFunction(func, points=True):
     
     plt.plot(x, y, label=func.prettifyLatex())
     
-    if func.x and func.y:
+    if func.x != None and func.y != None:
         plt.plot(func.x, func.y, 'o')
     
     plt.grid()
@@ -396,16 +416,19 @@ def f3(x):
     return 6*x**3 - 2*x**2 - 5*x + 2
 
 testx = np.linspace(-10, 10, 11)
-testy = f2(testx)
+testy = f3(testx)
 
-a = Equation("2ab = 16")
-b = Equation("a - b = 2")
-print("Solving", eq.prettify())
-answer = solveEquations([a, b])
-print(answer)
+#a = parsePolynomial("x^2 - 2ab")
+#print(a.prettify())
+
+#a = Equation("2ab = 16")
+#b = Equation("a - b = 2")
+#print("Solving", eq.prettify())
+#answer = solveEquations([a, b])
+#print(answer)
 
 #plotFunction()
 
-#plotFunction(polynomial(2, testx, testy))
-#plt.show()
+plotFunction(polynomial(3, testx, testy))
+plt.show()
 
