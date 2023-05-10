@@ -82,7 +82,7 @@ class Linear(Polynomial):
 
 class Equation:
     def __init__(self, *args):
-        if not isinstance(args[0], Equation):
+        if not isinstance(args[0], Function):
             l = args[0].split("=")
             if len(l) != 2:
                 print("[ERROR] Cannot parse equation because it doesn't contain '='")
@@ -113,7 +113,7 @@ class Equation:
 def parsePolynomial(s):
     coeffs = {}
     
-    # 2*x^2 + 1x - 3
+    # 2ab^5
     matches = re.findall((
             # Mellomrom +- mellomrom
             r"[\s]*(-|\+)?[\s]*"
@@ -122,62 +122,52 @@ def parsePolynomial(s):
                 # Første mulighet
                 r"(?:"
                     # Optional desimaltall eller et tall
-                    r"(\d+\.\d+|\d+|)?"
+                    r"(\d+\.\d+|\d+)?"
                     
+                    # Luft
+                    r"[\s]*"
+            
+                    # Optional gangetegn
+                    r"\*?"
+                    
+                    # Luft
+                    r"[\s]*"
+                    
+                    # (En bokstav. luft. optional *) minst en
                     r"(?:"
-                        # (En bokstav som ikke er x, y eller z. mellomrom) minst en gang
-                        r"([a-wA-W][\s]*)+"
-                
-                        # Et gangetegn
-                        r"\*"
-                
-                        # x med optional (**|^)
-                        r"(?:"
-                            # x
-                            r"x"
-                            
-                            # Optional
-                            r"(?:"
-                                # ^ eller **
-                                r"(?:\^|\*\*)"
-                                
-                                # Et tall
-                                f"(\d+)"
-                            r")?"
-                        r")"
-                        
-                        # Eller
-                        f"|"
-                
-                        # Et optional gangetegn
+                        # Optional gangetegn
                         r"\*?"
-                
-                        # x med optional (**|^)
+                        
+                        # En bokstav
+                        r"([a-zA-Z])"
+                        
+                        # Optional (^|**) og et tall
                         r"(?:"
-                            # x
-                            r"x"
-                            
-                            # Optional
                             r"(?:"
-                                # ^ eller **
-                                r"(?:\^|\*\*)"
+                                r"\^"
                                 
-                                # Et tall
-                                f"(\d+)"
-                            r")?"
-                        r")"
-                    r")"
+                                r"|"
+                                
+                                r"\*\*"
+                            r")"
+                            
+                            r"(\d+)"
+                        r")?"
+                        
+                        # Luft
+                        r"[\s]*"
+                    r")+"
                 r")"
                 
                 r"|"
                     
                 # Andre mulighet
-                r"("
+                r"(?:"
                     # Et desimaltall eller tall
-                    r"\d+\.\d+|\d+"
+                    r"(\d+\.\d+|\d+)"
                     
                     # Optional konstanter (bokstaver)
-                    r"[a-zA-Z]*"
+                    r"([a-zA-Z]*)"
                 ")"
 
             r")"), s)
@@ -413,7 +403,7 @@ def f2(x):
     return 2*x**2 - 5*x + 2
 
 def f3(x):
-    return 6*x**3 - 2*x**2 - 5*x + 2
+    return 4*x**3 - 2*x**2 - 5*x + 2
 
 testx = np.linspace(-10, 10, 11)
 testy = f3(testx)
@@ -421,14 +411,12 @@ testy = f3(testx)
 #a = parsePolynomial("x^2 - 2ab")
 #print(a.prettify())
 
-#a = Equation("2ab = 16")
+a = Equation("2ab^5 = 16")
 #b = Equation("a - b = 2")
-#print("Solving", eq.prettify())
+print("Solving", eq.prettify())
 #answer = solveEquations([a, b])
 #print(answer)
 
-#plotFunction()
-
-plotFunction(polynomial(3, testx, testy))
-plt.show()
+#plotFunction(polynomial(3, testx, testy))
+#plt.show()
 
