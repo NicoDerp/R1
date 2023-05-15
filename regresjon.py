@@ -80,6 +80,30 @@ class Linear(Polynomial):
         self.b = b
         super().__init__([b, a], 1, x, y)
 
+class Exponential(Function):
+    def __init__(self, a, b, x=None, y=None):
+        self.f = lambda x: a*b**x
+        self.coeffs = [a, b]
+        self.consts = [[], []]
+        self.degree = 1
+        super().__init__(self.f, x, y)
+    
+    def prettify(self):
+        s = ""
+        
+        c = self.coeffs[0]
+        if c < 0:
+            c = -c
+            s += "-"
+        
+        if round(c, 2) != 1.0:
+            s += f"{c:.2f}*"
+ 
+        c = self.coeffs[1]
+        s += f"{c:.2f}^x"
+
+        return s
+
 class Equation:
     def __init__(self, *args):
         if not isinstance(args[0], Function):
@@ -111,73 +135,97 @@ class Equation:
         return f"${self.f.prettify()} = {self.g.prettify()}$"
 
 def parsePolynomial(s):
-    coeffs = {}
     
     # 2ab^5
     matches = re.findall((
-            # Mellomrom +- mellomrom
-            r"[\s]*(-|\+)?[\s]*"
+            # Luft
+            r"[\s]*"
+            
+            # Optional + eller -
+            r"([-+])?"
+            
+            # Luft
+            "[\s]*"
             
             r"(?:"
-                # Første mulighet
+                # Optional desimaltall eller et tall
+                r"(\d+\.\d+|\d+)?"
+                
+                # (En bokstav. luft. optional *) minst en
                 r"(?:"
-                    # Optional desimaltall eller et tall
-                    r"(\d+\.\d+|\d+)?"
-                    
                     # Luft
                     r"[\s]*"
-            
+                    
                     # Optional gangetegn
                     r"\*?"
                     
-                    # Luft
-                    r"[\s]*"
+                    # En bokstav
+                    r"([a-zA-Z])"
                     
-                    # (En bokstav. luft. optional *) minst en
+                    # Optional (^|**) og et tall
                     r"(?:"
-                        # Optional gangetegn
-                        r"\*?"
-                        
-                        # En bokstav
-                        r"([a-zA-Z])"
-                        
-                        # Optional (^|**) og et tall
                         r"(?:"
-                            r"(?:"
-                                r"\^"
-                                
-                                r"|"
-                                
-                                r"\*\*"
-                            r")"
+                            r"\^"
                             
-                            r"(\d+)"
-                        r")?"
+                            r"|"
+                            
+                            r"\*\*"
+                        r")"
                         
-                        # Luft
-                        r"[\s]*"
-                    r")+"
-                r")"
+                        r"(\d+)"
+                    r")?"
+                r")+"
                 
                 r"|"
-                    
-                # Andre mulighet
-                r"(?:"
-                    # Et desimaltall eller tall
-                    r"(\d+\.\d+|\d+)"
-                    
-                    # Optional konstanter (bokstaver)
-                    r"([a-zA-Z]*)"
-                ")"
+                
+                # Desimaltall eller et tall
+                r"(\d+\.\d+|\d+)"
+                
+                # Luft
+                r"[\s]*"
 
+                # Optional gangetegn
+                r"\*?"
+                
+                # Luft
+                r"[\s]*"
+                
+                # (En bokstav. luft. optional *) 0 eller mer
+                r"(?:"
+                    # Optional gangetegn
+                    r"\*?"
+                    
+                    # En bokstav
+                    r"([a-zA-Z])"
+                    
+                    # Optional (^|**) og et tall
+                    r"(?:"
+                        r"(?:"
+                            r"\^"
+                            
+                            r"|"
+                            
+                            r"\*\*"
+                        r")"
+                        
+                        r"(\d+)"
+                    r")?"
+                    
+                    # Luft
+                    r"[\s]*"
+                r")*"
             r")"), s)
-            
+    
+    coeffs = {}
+    consts = []
+    
     print(matches)
     
     # ax^b
     for match in matches:
         sign = match[0]
         a = "1"
+        csts = []
         if match[1]:
             a = match[1]
             b = match[2]
@@ -188,7 +236,7 @@ def parsePolynomial(s):
             b = "1"
         a = float(sign + a)
         b = float(b)
-        print(match, f"{a}x^{b}")
+        print(match, f"{a}*x^{b}")
         
         if b in coeffs:
             coeffs[b] += a
@@ -214,6 +262,8 @@ def parseEquation(s):
     return Equation(f, g)
 
 def linear(X, Y, maxIterations=100000):
+    X = np.array(X)
+    Y = np.array(Y)
     a, b = [0, 0]
     learning_rate = 0.001
     m = float(len(Y))
@@ -288,6 +338,8 @@ def polynomialAdaDelta(degree, X, Y, maxIterations=100000):
     return Polynomial(coeffs, degree, X, Y)
 
 def polynomial(degree, X, Y, maxIterations=100000):
+    X = np.array(X)
+    Y = np.array(Y)
     coeffs = [0 for i in range(degree+1)]
     #learning_rate = 0.00001
     learning_rate = 0.001
@@ -312,7 +364,7 @@ def polynomial(degree, X, Y, maxIterations=100000):
         Vht = Vt / (1 - B2)
         
         # Adam numpizized
-        Ms = (learning_rate / np.sqrt(Vht) + epsilon) * Mht
+        Ms = (learning_rate / (np.sqrt(Vht) + epsilon)) * Mht
         
         coeffs = [coeffs[i] - Ms[i] for i in range(degree+1)]
         #print(error, coeffs)
@@ -333,6 +385,70 @@ def polynomial(degree, X, Y, maxIterations=100000):
         lastError = error
 
     return Polynomial([c for c in coeffs], degree, X, Y)
+
+def exponential(X, Y, maxIterations=1000000):
+    X = np.array(X)
+    Y = np.array(Y)
+    a = 1
+    b = 1
+    #learning_rate = 0.00001
+    learning_rate = 0.001
+    B1 = 0.9
+    B2 = 0.999
+    epsilon = 10 ** -8
+    
+    m = float(len(Y))
+    Ma = 0
+    Mb = 0
+    Va = 0
+    Vb = 0
+    lastError = 0
+    for i in range(maxIterations):
+        predicted = [a*b**x for x in X]
+        
+        Da = -2 * sum(b**X * (Y - predicted)) / m
+        Db = -2 * sum((a*X*b**(X-1)) * (Y - predicted)) / m
+        error = sum((Y - predicted) ** 2) / m
+        
+        
+        Ma = B1*Ma + (1 - B1) * Da
+        Mb = B1*Mb + (1 - B1) * Db
+        
+        Va = B2*Va + (1 - B2) * Da**2
+        Vb = B2*Vb + (1 - B2) * Db**2
+        
+        
+        Mha = Ma / (1 - B1)
+        Mhb = Mb / (1 - B1)
+        
+        Vha = Va / (1 - B2)
+        Vhb = Vb / (1 - B2)
+        
+        
+        Ma = (learning_rate / (np.sqrt(Vha) + epsilon)) * Mha
+        Mb = (learning_rate / (np.sqrt(Vhb) + epsilon)) * Mhb
+        
+        a -= Ma
+        b -= Mb
+        
+        #print(error, coeffs)
+        if i % 10000 == 0:
+            print(f"{error}, {a:.10f}, {b:.10f}")
+        #print(Y)
+        
+        if error < 0.0000001:
+            break
+        
+        if np.isnan(a) or np.isnan(b):
+            print("[ERROR] Got NaN, try another function or supply more points")
+            exit()
+        
+        if error == lastError:
+            break
+            
+        lastError = error
+
+    return Exponential(a, b, X, Y)
 
 def solveEquations(equations, maxIterations=100000):
     coeffs = [0 for i in range(degree+1)]
@@ -383,7 +499,7 @@ def solveEquations(equations, maxIterations=100000):
 
 
 def plotFunction(func, points=True):
-    x = np.linspace(-20, 20, 51)
+    x = np.linspace(0, 12, 51)
     y = func(x)
     
     plt.plot(x, y, label=func.prettifyLatex())
@@ -405,18 +521,25 @@ def f2(x):
 def f3(x):
     return 4*x**3 - 2*x**2 - 5*x + 2
 
-testx = np.linspace(-10, 10, 11)
-testy = f3(testx)
+def f4(x):
+    return 2*5**x
 
-#a = parsePolynomial("x^2 - 2ab")
-#print(a.prettify())
-
-a = Equation("2ab^5 = 16")
-#b = Equation("a - b = 2")
-print("Solving", eq.prettify())
-#answer = solveEquations([a, b])
-#print(answer)
-
-#plotFunction(polynomial(3, testx, testy))
-#plt.show()
+if __name__ == "__main__":
+    testx = np.linspace(-10, 10, 11)
+    #testx = list(range(12))
+    #testy = [42572, 47474, 51315, 53043, 54112, 60528, 70585, 75781, 76281, 78861, 83304, 92213]
+    testy = f4(testx)
+    
+    #a = parsePolynomial("x^2 - 2ab")
+    #print(a.prettify())
+    
+    #a = Equation("2ab^5 + 2a - b = 16")
+    #b = Equation("a - b = 2")
+    #print("Solving", eq.prettify())
+    #answer = solveEquations([a, b])
+    #print(answer)
+    
+    plotFunction(exponential(testx, testy))
+    #plotFunction(polynomial(3, testx, testy))
+    plt.show()
 
