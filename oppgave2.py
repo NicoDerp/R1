@@ -18,16 +18,24 @@ with open("klima.csv", "rb") as f:
     #print(data)
 
 
+# X is from 0 to (2021 - 1999) instead of 1999 to 2021
 X = header - 1999
+Y = np.sum(data, 0)
+yearCount = 2021-1999 + 1
 
-#func = exponential(header, np.sum(data, 0))
-func = polynomial(1, X, np.sum(data, 0))
-#func = polynomial(1, header, np.log(np.sum(data, 0)))
-plotFunction(func, (0, 2021-1999))
+Xplot = np.linspace(0, yearCount, 51)
+print(header, Xplot)
 
-plt.plot(X, np.sum(data, 0))
+#func = exponential(X, Y)
+#func = linear(X, Y)
+func = logarithmic(X, Y)
+plt.plot(Xplot+1999, func(Xplot))
+
+print(func.prettify())
+
+plt.plot(header, Y)
 plt.xlabel("År")
-plt.ylabel("100 tonn farlig avfall")
+plt.ylabel("1000 tonn farlig avfall")
 plt.title(title)
 plt.legend()
 plt.grid()
