@@ -107,6 +107,30 @@ class Exponential(Function):
 
         return s
 
+class Logarithmic(Function):
+    def __init__(self, a, b, x=None, y=None):
+        self.f = lambda x: a+b*np.log(x)
+        self.coeffs = [a, b]
+        self.consts = [[], []]
+        self.degree = 1
+        super().__init__(self.f, x, y)
+    
+    def prettify(self):
+        s = ""
+        
+        if round(self.coeffs[0], 2) != 0.0:
+            s += f"{self.coeffs[0]:.2f}"
+ 
+        c = self.coeffs[1]
+        if c < 0:
+            c = -c
+            s += " - "
+        else:
+            s += " + "
+        s += f"{c:.2f}*ln(x)"
+
+        return s
+
 class Equation:
     def __init__(self, *args):
         if not isinstance(args[0], Function):
@@ -340,12 +364,12 @@ def polynomialAdaDelta(degree, X, Y, maxIterations=100000):
     
     return Polynomial(coeffs, degree, X, Y)
 
-def polynomial(degree, X, Y, maxIterations=1000000):
+def polynomial(degree, X, Y, maxIterations=1000000, rate=0.001):
     X = np.array(X)
     Y = np.array(Y)
     coeffs = [0 for i in range(degree+1)]
     #learning_rate = 0.00001
-    learning_rate = 0.001
+    learning_rate = rate
     B1 = 0.9
     B2 = 0.999
     epsilon = 10 ** -8
@@ -389,73 +413,16 @@ def polynomial(degree, X, Y, maxIterations=1000000):
 
     return Polynomial([c for c in coeffs], degree, X, Y)
 
-def exponential(X, Y, maxIterations=1000000):
-    print(np.log(Y))
+def exponential(X, Y, maxIterations=100000):
     #func = linear(X, np.log(Y))
-    func = polynomial(1, X, np.log(Y))
+    func = polynomial(1, X, np.log(Y), rate=0.001)
     return Exponential(np.exp(func.coeffs[0]), np.exp(func.coeffs[1]), X, Y)
-    X = np.array(X)
-    Y = np.array(Y)
-    a = 1
-    b = 1
-    #learning_rate = 0.00001
-    learning_rate = 0.001
-    B1 = 0.9
-    B2 = 0.999
-    epsilon = 10 ** -8
-    
-    m = float(len(Y))
-    Ma = 0
-    Mb = 0
-    Va = 0
-    Vb = 0
-    lastError = 0
-    for i in range(maxIterations):
-        predicted = [a*b**x for x in X]
-        
-        Da = -2 * sum(b**X * (Y - predicted)) / m
-        Db = -2 * sum((a*X*b**(X-1)) * (Y - predicted)) / m
-        error = sum((Y - predicted) ** 2) / m
-        
-        
-        Ma = B1*Ma + (1 - B1) * Da
-        Mb = B1*Mb + (1 - B1) * Db
-        
-        Va = B2*Va + (1 - B2) * Da**2
-        Vb = B2*Vb + (1 - B2) * Db**2
-        
-        
-        Mha = Ma / (1 - B1)
-        Mhb = Mb / (1 - B1)
-        
-        Vha = Va / (1 - B2)
-        Vhb = Vb / (1 - B2)
-        
-        
-        Ma = (learning_rate / (np.sqrt(Vha) + epsilon)) * Mha
-        Mb = (learning_rate / (np.sqrt(Vhb) + epsilon)) * Mhb
-        
-        a -= Ma
-        b -= Mb
-        
-        #print(error, coeffs)
-        if i % 10000 == 0:
-            print(f"{error}, {a:.10f}, {b:.10f}")
-        #print(Y)
-        
-        if error < 0.0000001:
-            break
-        
-        if np.isnan(a) or np.isnan(b):
-            print("[ERROR] Got NaN, try another function or supply more points")
-            exit()
-        
-        if error == lastError:
-            break
-            
-        lastError = error
 
-    return Exponential(a, b, X, Y)
+def logarithmic(X, Y, maxIterations=100000):
+    #func = linear(X, np.log(Y))
+    print(Y/max(Y))
+    func = polynomial(1, X, np.exp(Y/max(Y)), rate=0.001)
+    return Logarithmic(np.log(func.coeffs[0]*max(Y)), np.log(func.coeffs[1]*max(Y)), X, Y)
 
 def solveEquations(equations, maxIterations=100000):
     coeffs = [0 for i in range(degree+1)]
