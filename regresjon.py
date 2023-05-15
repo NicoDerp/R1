@@ -18,6 +18,11 @@ class Function:
     def prettifyLatex(self):
         return f"${self.prettify()}$"
     
+    def getY(self, r):
+        x = np.linspace(r[0], r[1], 51)
+        y = self.f(x)
+        return y
+    
     def __call__(self, x):
         return self.f(x)
 
@@ -30,7 +35,6 @@ class Polynomial(Function):
         super().__init__(self.f, x, y)
     
     def prettify(self):
-        print(self.coeffs)
         s = ""
         for i in range(self.degree, -1, -1):
             c = self.coeffs[i]
@@ -71,7 +75,6 @@ class Polynomial(Function):
                     s += f"{n}"
                 s += f"x^{i}"
 
-        print(s)
         return s
 
 class Linear(Polynomial):
@@ -279,7 +282,7 @@ def linear(X, Y, maxIterations=100000):
         b -= learning_rate * Db
         
         if i % 100 == 0:
-            print(error, i)
+            print(error, i, a, b)
         
         if error < 0.000001:
             break
@@ -337,7 +340,7 @@ def polynomialAdaDelta(degree, X, Y, maxIterations=100000):
     
     return Polynomial(coeffs, degree, X, Y)
 
-def polynomial(degree, X, Y, maxIterations=100000):
+def polynomial(degree, X, Y, maxIterations=1000000):
     X = np.array(X)
     Y = np.array(Y)
     coeffs = [0 for i in range(degree+1)]
@@ -368,7 +371,7 @@ def polynomial(degree, X, Y, maxIterations=100000):
         
         coeffs = [coeffs[i] - Ms[i] for i in range(degree+1)]
         #print(error, coeffs)
-        if i % 100 == 0:
+        if i % 1000 == 0:
             print(error)
         #print(Y)
         
@@ -387,6 +390,10 @@ def polynomial(degree, X, Y, maxIterations=100000):
     return Polynomial([c for c in coeffs], degree, X, Y)
 
 def exponential(X, Y, maxIterations=1000000):
+    print(np.log(Y))
+    #func = linear(X, np.log(Y))
+    func = polynomial(1, X, np.log(Y))
+    return Exponential(np.exp(func.coeffs[0]), np.exp(func.coeffs[1]), X, Y)
     X = np.array(X)
     Y = np.array(Y)
     a = 1
@@ -498,8 +505,8 @@ def solveEquations(equations, maxIterations=100000):
     return Polynomial(coeffs, degree, X, Y)
 
 
-def plotFunction(func, points=True):
-    x = np.linspace(0, 12, 51)
+def plotFunction(func, r=(0, 12), points=True):
+    x = np.linspace(r[0], r[1], 51)
     y = func(x)
     
     plt.plot(x, y, label=func.prettifyLatex())
