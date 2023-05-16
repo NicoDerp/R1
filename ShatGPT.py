@@ -18,19 +18,24 @@ def dReLU(x):
     return max(0, 1)
 
 
-class Layer:
-    def __init__(self, size, nextSize, activation):
-        self.size = size
-        self.neurons = np.zeros(size)
-        self.biases = np.zeros(size)
-        
-        if nextSize != -1:
-            # This to next
-            self.xWeights = np.random.rand(nextSize, size)
+def softmax(x):
+    e = np.exp(x - np.max(x))
+    return e / np.sum(e)
 
-            # This to this
-            self.hWeights = np.random.rand(nextSize, nextSize)
-            #self.weights = np.ones((next.size, size))
+
+class Layer:
+    def __init__(self, size, prevSize, activation):
+        self.size = size
+        self.prevSize = prevSize
+        self.state = np.zeros(size)
+        self.biases = np.zeros(size)
+
+        # Prev to this
+        self.xWeights = np.random.rand(size, prevSize)
+
+        # This to this
+        self.hWeights = np.random.rand(size, prevSize)
+        #self.weights = np.ones((next.size, size))
         
         if activation == "none":
             self.activation = NoneActivation
@@ -40,28 +45,32 @@ class Layer:
             self.dActivation = dReLU
 
 
-class StackedRNN:
+class LSTM:
     def __init__(self):
-        self.layers = [Layer(2,  4, "none"),
-                       Layer(4,  2, "none"),
-                       Layer(2, -1, "none")]
+        self.inputSize = 2
+        self.layers = [Layer(4, self.inputSize, "none"),
+                       Layer(5, 4, "none"),
+                       Layer(2, 5, "none")]
         self.layerCount = len(self.layers)
 
-        self.layers[0].neurons = np.ones(self.layers[0].size)
+    def feedForward(self, inputState):
+        if inputState.shape != (self.inputSize,):
+            print(f"[ERROR] Feed-forward input's shape is not ({self.inputSize}, 0) but {inputState.shape}")
+            return
 
-        self.feedForward()
-        print(self.layers[1].neurons)
+        curL = self.layers[0]
+        print(curL.hWeights.dot(inputState))
+        curL.state = curL.activation(curL.xWeights.dot(inputState) + curL.hWeights.dot(inputState) + curL.biases)
 
-    def feedForward(self):
-        # 0 .. L-1
-        for i in range(0, self.layerCount-1):
+        # 1 .. L-1
+        for i in range(1, self.layerCount-1):
+            prevL = self.layers[i-1]
             curL = self.layers[i]
-            nextL = self.layers[i+1]
             # nextL.zNeurons = curL.weights.dot(curL.neurons) + nextL.biases
-            nextL.neurons = nextL.activation(curL.xWeights.dot(curL.neurons) + curL.hWeights.dot(nextL.neurons))
+            curL.state = curL.activation(curL.xWeights.dot(prevL.state) + curL.hWeights.dot(prevL.state) + curL.biases)
 
         # Calculate last layer which doesn't have hidden state
-        self.layers[-1].neurons = nextL.activation(curL.xWeights.dot(curL.neurons) + curL.hWeights.dot(nextL.neurons))
+        #self.layers[-1].state = nextL.activation(curL.xWeights.dot(curL.state) + curL.hWeights.dot(nextL.neurons))
 
     def gradientDescent(self, actual):
         lossDerivative = (2.0/self.layers[-1].size) * (self.layers[-1].neurons - actual)
@@ -74,7 +83,10 @@ class StackedRNN:
         #self.layers[-2].weights -= 0.001 * errorL * self.layers[-2].neurons
 
 
-ai = StackedRNN()
+ai = LSTM()
+
+ai.feedForward(np.ones(ai.inputSize))
+print(ai.layers[0].state)
 #ai.gradientDescent(np.array([1, 2, 3, 4]))
 
 # print(a.neurons)
