@@ -51,11 +51,17 @@ class Vector:
         z = self.values[0] * other.values[1] - self.values[1] * other.values[0]
         return Vector((x, y, z))
 
-
     def ortho(self):
         if self.dim != 2:
             raise ValueError("Only works for 2 dimensions")
         return Vector((-self.values[1], self.values[0]))
+
+    def isOrtho(self, other):
+        self._check(other)
+        if self.dim != 2:
+            raise ValueError("Only works for 2 dimensions")
+        d = self.dot(other)
+        return True if d == 0 else False
 
 class Point:
     def __init__(self, coord):
@@ -90,7 +96,12 @@ h = vectorPointDistance(A, B, P)
 print(area1(A, B, h))
 print(area2(A, B, P))
 
-#A = Vector((1, 0, 0))
-#B = Vector((0, 1, 0))
-#C = A.cross(B)
-#print(C)
+u = Vector((4, 1))
+v = Vector((-2, 8))
+
+if u.isOrtho(v):
+    print("Vektorene er ortogonale")
+else:
+    print("Vektorene er ikke ortogonale")
+
+
