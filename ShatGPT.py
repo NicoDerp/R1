@@ -19,17 +19,17 @@ def dReLU(x):
 
 
 class Layer:
-    def __init__(self, size, prev, next, activation):
+    def __init__(self, size, nextSize, activation):
         self.size = size
-        self.prev = prev
-        self.next = next
         self.neurons = np.zeros(size)
-        self.zNeurons = np.zeros(size)
-        self.oldNeurons = np.zeros(size)
         self.biases = np.zeros(size)
         
-        if next:
-            self.weights = np.random.rand(next.size, size)
+        if nextSize != -1:
+            # This to next
+            self.xWeights = np.random.rand(nextSize, size)
+
+            # This to this
+            self.hWeights = np.random.rand(nextSize, nextSize)
             #self.weights = np.ones((next.size, size))
         
         if activation == "none":
@@ -39,28 +39,29 @@ class Layer:
             self.activation = ReLU
             self.dActivation = dReLU
 
-    def feedForward(self):
-        if not self.next:
-            return
-        
-        self.next.zNeurons = self.weights.dot(self.neurons) + self.next.biases
-        self.next.neurons = self.next.activation(self.next.zNeurons)
-        self.next.neurons = self.next.activation(self.prev.weights*)
-        self.next.oldNeurons = self.next.neurons
-
 
 class StackedRNN:
     def __init__(self):
-        self.layers = []
-        self.layers.insert(0, Layer(2, None, "none"))
-        self.layers.insert(0, Layer(4, self.layers[0], "none"))
-        self.layers.insert(0, Layer(2, self.layers[0], "none"))
+        self.layers = [Layer(2,  4, "none"),
+                       Layer(4,  2, "none"),
+                       Layer(2, -1, "none")]
         self.layerCount = len(self.layers)
 
         self.layers[0].neurons = np.ones(self.layers[0].size)
 
-        self.layers[0].feedForward()
+        self.feedForward()
         print(self.layers[1].neurons)
+
+    def feedForward(self):
+        # 0 .. L-1
+        for i in range(0, self.layerCount-1):
+            curL = self.layers[i]
+            nextL = self.layers[i+1]
+            # nextL.zNeurons = curL.weights.dot(curL.neurons) + nextL.biases
+            nextL.neurons = nextL.activation(curL.xWeights.dot(curL.neurons) + curL.hWeights.dot(nextL.neurons))
+
+        # Calculate last layer which doesn't have hidden state
+        self.layers[-1].neurons = nextL.activation(curL.xWeights.dot(curL.neurons) + curL.hWeights.dot(nextL.neurons))
 
     def gradientDescent(self, actual):
         lossDerivative = (2.0/self.layers[-1].size) * (self.layers[-1].neurons - actual)
@@ -74,7 +75,7 @@ class StackedRNN:
 
 
 ai = StackedRNN()
-ai.gradientDescent(np.array([1, 2, 3, 4]))
+#ai.gradientDescent(np.array([1, 2, 3, 4]))
 
 # print(a.neurons)
 # print(a.weights.dot(a.neurons))
