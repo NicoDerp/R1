@@ -33,21 +33,11 @@ def dSigmoid(x):
 
 
 class Layer:
-    def __init__(self, size, prevSize, activation):
+    def __init__(self, layerType, size, activation):
+        self.layerType = layerType
         self.size = size
-        self.prevSize = prevSize
-        self.neurons = np.zeros(size)
-        self.states = np.zeros(size)
-
-        self.fWeights = np.random.rand(size, size+prevSize)
-        self.iWeights = np.random.rand(size, size+prevSize)
-        self.cWeights = np.random.rand(size, size+prevSize)
-        self.oWeights = np.random.rand(size, size+prevSize)
-
-        self.fBiases = np.zeros(size)
-        self.iBiases = np.zeros(size)
-        self.cBiases = np.zeros(size)
-        self.oBiases = np.zeros(size)
+        self.output = np.zeros(size)
+        self.prev = None
 
         if activation == "none":
             self.activation = NoneActivation
@@ -56,38 +46,97 @@ class Layer:
             self.activation = ReLU
             self.dActivation = dReLU
 
+    def feedForward(self):
+        pass
 
-class LSTM:
+    def setup_(self, prev):
+        self.prev = prev
+
+
+class InputLayer(Layer):
+    def __init__(self, size):
+        super().__init__("InputLayer", size, "")
+
+
+class FFLayer(Layer):
+    def __init__(self, size, activation):
+        super().__init__("FFLayer", size, activation)
+
+        self.weights = None
+        self.biases = np.zeros(self.size)
+
+    def feedForward(self):
+        self.output = self.activation(self.weights.dot(self.prev.output) + self.biases)
+
+    def setup_(self, prev):
+        super().setup_(prev)
+
+        self.weights = np.random.rand(self.size, self.prev.size)
+
+
+class LSTMLayer(Layer):
+    def __init__(self, size, activation):
+        super().__init__("FFLayer", size, activation)
+        self.fWeights = None
+        self.iWeights = None
+        self.cWeights = None
+        self.oWeights = None
+
+        self.fBiases = np.zeros(self.size)
+        self.iBiases = np.zeros(self.size)
+        self.cBiases = np.zeros(self.size)
+        self.oBiases = np.zeros(self.size)
+        self.states = np.zeros(size)
+
+    def feedForward(self):
+        vt = np.concatenate((self.states, self.prev.output))
+
+        ft = Sigmoid(self.fWeights.dot(vt) + self.fBiases)
+        it = Sigmoid(self.iWeights.dot(vt) + self.iBiases)
+        ct = np.tanh(self.cWeights.dot(vt) + self.cBiases)
+        ot = Sigmoid(self.oWeights.dot(vt) + self.oBiases)
+
+        self.output = ft * self.output + it * ct
+        self.states = ot * np.tanh(self.output)
+
+    def setup_(self, prev):
+        super().setup_(prev)
+
+        self.fWeights = np.random.rand(self.size, self.size + self.prev.size)
+        self.iWeights = np.random.rand(self.size, self.size + self.prev.size)
+        self.cWeights = np.random.rand(self.size, self.size + self.prev.size)
+        self.oWeights = np.random.rand(self.size, self.size + self.prev.size)
+
+
+class AI:
     def __init__(self):
-        self.inputSize = 2
-        self.hiddenLayers = [Layer(4, self.inputSize, "none"),
-                             Layer(2, 4, "none")]
+        self.layers = [InputLayer(3),
+                       LSTMLayer(4, "none"),
+                       FFLayer(2, "none")]
 
-    def feedForward(self, inputState):
-        if inputState.shape != (self.inputSize,):
-            print(f"[ERROR] Feed-forward input's shape is not ({self.inputSize}, 0) but {inputState.shape}")
+        self.setupLayers()
+
+    def setupLayers(self):
+        if len(self.layers) < 3:
+            print(f"[ERROR] At least 3 layers are required")
             return
 
-        layer = self.hiddenLayers[0]
-        vt = np.concatenate((layer.states, inputState))
-        # for state in layer.states:
-        ft = Sigmoid(layer.fWeights.dot(vt) + layer.fBiases)
-        it = Sigmoid(layer.iWeights.dot(vt) + layer.iBiases)
-        ct = np.tanh(layer.cWeights.dot(vt) + layer.cBiases)
-        ot = Sigmoid(layer.oWeights.dot(vt) + layer.oBiases)
-        layer.neurons = ft * layer.neurons + it * ct
-        layer.states = ot * np.tanh(layer.neurons)
+        if self.layers[0].layerType != "InputLayer":
+            print(f"[ERROR] First layer isn't InputLayer")
+            return
 
-        for i in range(1, len(self.hiddenLayers)):
-            layer = self.hiddenLayers[i]
-            vt = np.concatenate((layer.states, self.hiddenLayers[i-1].neurons))
-            # for state in layer.states:
-            ft = Sigmoid(layer.fWeights.dot(vt) + layer.fBiases)
-            it = Sigmoid(layer.iWeights.dot(vt) + layer.iBiases)
-            ct = np.tanh(layer.cWeights.dot(vt) + layer.cBiases)
-            ot = Sigmoid(layer.oWeights.dot(vt) + layer.oBiases)
-            layer.neurons = ft * layer.neurons + it * ct
-            layer.states = ot * np.tanh(layer.neurons)
+        self.layers[0].setup_(None)
+        for i in range(1, len(self.layers)):
+            self.layers[i].setup_(self.layers[i - 1])
+
+    def feedForward(self, inputState):
+        if inputState.shape != self.layers[0].output.shape:
+            print(f"[ERROR] Feed-forward input's shape is not {self.layers[0].output.shape} but {inputState.shape}")
+            return
+
+        self.layers[0].output = inputState
+        for i in range(1, len(self.layers)):
+            self.layers[i].feedForward()
 
     def gradientDescent(self, actual):
         lossDerivative = (2.0/self.layers[-1].size) * (self.layers[-1].neurons - actual)
@@ -100,12 +149,15 @@ class LSTM:
         #self.layers[-2].weights -= 0.001 * errorL * self.layers[-2].neurons
 
 
-ai = LSTM()
+ai = AI()
 
-ai.feedForward(np.ones(ai.inputSize))
-for layer in ai.hiddenLayers:
-    print(layer.states)
-    print(layer.neurons)
+ai.feedForward(np.ones(ai.layers[0].size))
+for layer in ai.layers:
+    if layer.layerType == "LSTMLayer":
+        print(layer.states)
+        print(layer.output)
+    else:
+        print(layer.output)
     print()
 #ai.gradientDescent(np.array([1, 2, 3, 4]))
 
