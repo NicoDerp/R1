@@ -12,11 +12,11 @@ class Function:
         self.y = y
         self.multiVariable = multiVariable
     
-    def prettify(self):
+    def prettify(self, decimals=2):
         return "ooga booga"
     
-    def prettifyLatex(self):
-        return f"${self.prettify()}$"
+    def prettifyLatex(self, decimals=2):
+        return f"${self.prettify(decimals)}$"
     
     def getY(self, r):
         x = np.linspace(r[0], r[1], 51)
@@ -34,7 +34,7 @@ class Polynomial(Function):
         self.degree = degree
         super().__init__(self.f, x, y)
     
-    def prettify(self):
+    def prettify(self, decimals=2):
         s = ""
         for i in range(self.degree, -1, -1):
             c = self.coeffs[i]
@@ -52,7 +52,7 @@ class Polynomial(Function):
                 s += " + "
             
             if i == 0:
-                s += f"{c:.2f}"
+                s += f"{c:.{decimals}f}"
                 for n in self.consts[i]:
                     s += f"{n}"
             elif i == 1:
@@ -61,7 +61,7 @@ class Polynomial(Function):
                         s += f"{n}"
                     s += "x"
                 else:
-                    s += f"{c:.2f}"
+                    s += f"{c:.{decimals}f}"
                     for n in self.consts[i]:
                         s += f"{n}"
                     s += "x"
@@ -70,7 +70,7 @@ class Polynomial(Function):
                     s += f"{n}"
                 s += f"x^{i}"
             else:
-                s += f"{c:.2f}"
+                s += f"{c:.{decimals}f}"
                 for n in self.consts[i]:
                     s += f"{n}"
                 s += f"x^{i}"
@@ -91,7 +91,7 @@ class Exponential(Function):
         self.degree = 1
         super().__init__(self.f, x, y)
     
-    def prettify(self):
+    def prettify(self, decimals=2):
         s = ""
         
         c = self.coeffs[0]
@@ -100,10 +100,10 @@ class Exponential(Function):
             s += "-"
         
         if round(c, 2) != 1.0:
-            s += f"{c:.2f}*"
+            s += f"{c:.{decimals}f}*"
  
         c = self.coeffs[1]
-        s += f"{c:.2f}^x"
+        s += f"{c:.{decimals}f}^x"
 
         return s
 
@@ -288,11 +288,11 @@ def parseEquation(s):
     g = parsePolynomial(g)
     return Equation(f, g)
 
-def linear(X, Y, maxIterations=100000):
+def linear(X, Y, maxIterations=100000, rate=0.001):
     X = np.array(X)
     Y = np.array(Y)
     a, b = [0, 0]
-    learning_rate = 0.001
+    learning_rate = rate
     m = float(len(Y))
     for i in range(maxIterations):
         predicted = [a*x + b for x in X]
@@ -305,7 +305,7 @@ def linear(X, Y, maxIterations=100000):
         a -= learning_rate * Da
         b -= learning_rate * Db
         
-        if i % 100 == 0:
+        if i % 1000 == 0:
             print(error, i, a, b)
         
         if error < 0.000001:
@@ -395,8 +395,8 @@ def polynomial(degree, X, Y, maxIterations=1000000, rate=0.001):
         
         coeffs = [coeffs[i] - Ms[i] for i in range(degree+1)]
         #print(error, coeffs)
-        if i % 1000 == 0:
-            print(error)
+        #if i % 1000 == 0:
+        print(i, error)
         #print(Y)
         
         if error < 0.0000001:
@@ -413,16 +413,18 @@ def polynomial(degree, X, Y, maxIterations=1000000, rate=0.001):
 
     return Polynomial([c for c in coeffs], degree, X, Y)
 
-def exponential(X, Y, maxIterations=100000):
+def exponential(X, Y, maxIterations=100000, rate=0.001):
     #func = linear(X, np.log(Y))
-    func = polynomial(1, X, np.log(Y), rate=0.001)
+    func = polynomial(1, X, np.log(Y), rate=rate)
     return Exponential(np.exp(func.coeffs[0]), np.exp(func.coeffs[1]), X, Y)
 
 def logarithmic(X, Y, maxIterations=100000):
     #func = linear(X, np.log(Y))
-    print(Y/max(Y))
-    func = polynomial(1, X, np.exp(Y/max(Y)), rate=0.001)
-    return Logarithmic(np.log(func.coeffs[0]*max(Y)), np.log(func.coeffs[1]*max(Y)), X, Y)
+    #print(np.exp(Y/max(Y)))
+    nY = Y / max(Y)
+    nY = Y - min(nY)
+    func = polynomial(1, X, np.exp(nY), rate=0.001)
+    return Logarithmic(np.log(func.coeffs[0])*max(Y), -np.log(func.coeffs[1]), X, Y)
 
 def solveEquations(equations, maxIterations=100000):
     coeffs = [0 for i in range(degree+1)]
@@ -498,11 +500,14 @@ def f3(x):
 def f4(x):
     return 2*5**x
 
+def f5(x):
+    return 6*x**3 + 2*x**2 + 5*x + 2
+
 if __name__ == "__main__":
-    testx = np.linspace(-10, 10, 11)
+    testx = np.linspace(-10, 10, 15)
     #testx = list(range(12))
     #testy = [42572, 47474, 51315, 53043, 54112, 60528, 70585, 75781, 76281, 78861, 83304, 92213]
-    testy = f4(testx)
+    testy = f5(testx)
     
     #a = parsePolynomial("x^2 - 2ab")
     #print(a.prettify())
@@ -513,7 +518,7 @@ if __name__ == "__main__":
     #answer = solveEquations([a, b])
     #print(answer)
     
-    plotFunction(exponential(testx, testy))
+    plotFunction(polynomial(3, testx, testy, rate=10000000000))
     #plotFunction(polynomial(3, testx, testy))
     plt.show()
 
