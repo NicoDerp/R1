@@ -107,6 +107,31 @@ class Exponential(Function):
 
         return s
 
+class Sine(Function):
+    def __init__(self, coeffs, x=None, y=None):
+        self.f = lambda x: coeffs[0]*np.sin(coeffs[1]*x + coeffs[2]) + coeffs[3]
+        self.coeffs = coeffs
+        self.consts = [[], []]
+        self.degree = 3
+        super().__init__(self.f, x, y)
+
+    def prettify(self, decimals=2):
+        c1 = self.coeffs[2]
+        if c1 < 0:
+            c1 = f" - {-c1:.{decimals}f}"
+        else:
+            c1 = f" + {c1:.{decimals}f}"
+            
+        c2 = self.coeffs[3]
+        if c2 < 0:
+            c2 = f" - {-c2:.{decimals}f}"
+        else:
+            c2 = f" + {c2:.{decimals}f}"
+
+        s = f"{coeffs[0]:.{decimals}f}*sin({coeffs[1]:.{decimals}f}x {c1}) {c2}"
+
+        return s
+
 class Logarithmic(Function):
     def __init__(self, a, b, x=None, y=None):
         self.f = lambda x: a+b*np.log(x)
@@ -412,6 +437,56 @@ def polynomial(degree, X, Y, maxIterations=1000000, rate=0.001):
         lastError = error
 
     return Polynomial([c for c in coeffs], degree, X, Y)
+
+def sine(X, Y, maxIterations=1000000, rate=0.001):
+    degree = 3
+    X = np.array(X)
+    Y = np.array(Y)
+    coeffs = [0 for i in range(degree+1)]
+    #learning_rate = 0.00001
+    learning_rate = rate
+    B1 = 0.9
+    B2 = 0.999
+    epsilon = 10 ** -8
+    
+    m = float(len(Y))
+    Mt = np.zeros(degree+1)
+    Vt = np.zeros(degree+1)
+    lastError = 0
+    for i in range(maxIterations):
+        predicted = coeffs[0]*np.sin(coeffs[1]*X + coeffs[2]) + coeffs[3]
+        
+        Ds = np.array([-2 * sum(X**i * (Y - predicted)) / m for i in range(degree+1)])
+        error = sum((Y - predicted) ** 2) / m
+        
+        Mt = B1*Mt + (1 - B1) * Ds
+        Vt = B2*Vt + (1 - B2) * Ds**2
+        
+        Mht = Mt / (1 - B1)
+        Vht = Vt / (1 - B2)
+        
+        # Adam numpizized
+        Ms = (learning_rate / (np.sqrt(Vht) + epsilon)) * Mht
+        
+        coeffs = [coeffs[i] - Ms[i] for i in range(degree+1)]
+        #print(error, coeffs)
+        #if i % 1000 == 0:
+        print(i, error)
+        #print(Y)
+        
+        if error < 0.0000001:
+            break
+        
+        if any(np.isnan(coeffs)):
+            print("[ERROR] Got NaN, try another function or supply more points")
+            exit()
+        
+        if error == lastError:
+            break
+            
+        lastError = error
+
+    return Sine(coeffs, X, Y)
 
 def exponential(X, Y, maxIterations=100000, rate=0.001):
     #func = linear(X, np.log(Y))
