@@ -116,19 +116,30 @@ class Sine(Function):
         super().__init__(self.f, x, y)
 
     def prettify(self, decimals=2):
-        c1 = self.coeffs[2]
-        if c1 < 0:
-            c1 = f" - {-c1:.{decimals}f}"
+        
+        c0 = round(self.coeffs[0], decimals)
+        if round(c0, 2) == 1.0:
+            c0 = ""
         else:
-            c1 = f" + {c1:.{decimals}f}"
-            
-        c2 = self.coeffs[3]
+            c0 = f"{c0}*"
+        
+        c1 = round(self.coeffs[1], decimals)
+        if round(c1, 2) == 1.0:
+            c1 = ""
+        
+        c2 = round(self.coeffs[2], decimals)
         if c2 < 0:
-            c2 = f" - {-c2:.{decimals}f}"
+            c2 = f" - {-c2}"
         else:
-            c2 = f" + {c2:.{decimals}f}"
+            c2 = f" + {c2}"
+            
+        c3 = self.coeffs[3]
+        if c3 < 0:
+            c3 = f" - {-c3:.{decimals}f}"
+        else:
+            c3 = f" + {c3:.{decimals}f}"
 
-        s = f"{coeffs[0]:.{decimals}f}*sin({coeffs[1]:.{decimals}f}x {c1}) {c2}"
+        s = f"{c0}sin({c1}x{c2}){c3}"
 
         return s
 
@@ -438,11 +449,11 @@ def polynomial(degree, X, Y, maxIterations=1000000, rate=0.001):
 
     return Polynomial([c for c in coeffs], degree, X, Y)
 
-def sine(X, Y, maxIterations=1000000, rate=0.001):
+def sine(X, Y, maxIterations=10000, rate=0.01):
     degree = 3
     X = np.array(X)
     Y = np.array(Y)
-    coeffs = [0 for i in range(degree+1)]
+    coeffs = np.random.rand(degree+1)
     #learning_rate = 0.00001
     learning_rate = rate
     B1 = 0.9
@@ -456,7 +467,13 @@ def sine(X, Y, maxIterations=1000000, rate=0.001):
     for i in range(maxIterations):
         predicted = coeffs[0]*np.sin(coeffs[1]*X + coeffs[2]) + coeffs[3]
         
-        Ds = np.array([-2 * sum(X**i * (Y - predicted)) / m for i in range(degree+1)])
+        d = Y - predicted
+        Ds = -2 * np.array([
+            sum(np.sin(coeffs[1]*X + coeffs[2]) * d),
+            sum(coeffs[0]*X*np.cos(coeffs[1]*X + coeffs[2]) * d),
+            sum(coeffs[0]*np.cos(coeffs[1]*X + coeffs[2]) * d),
+            sum(d)
+        ]) / m
         error = sum((Y - predicted) ** 2) / m
         
         Mt = B1*Mt + (1 - B1) * Ds
@@ -470,8 +487,8 @@ def sine(X, Y, maxIterations=1000000, rate=0.001):
         
         coeffs = [coeffs[i] - Ms[i] for i in range(degree+1)]
         #print(error, coeffs)
-        #if i % 1000 == 0:
-        print(i, error)
+        if i % 1000 == 0:
+            print(i, error)
         #print(Y)
         
         if error < 0.0000001:
@@ -482,6 +499,7 @@ def sine(X, Y, maxIterations=1000000, rate=0.001):
             exit()
         
         if error == lastError:
+            print("Stopping because of local minima")
             break
             
         lastError = error
@@ -550,7 +568,7 @@ def solveEquations(equations, maxIterations=100000):
 
 
 def plotFunction(func, r=(0, 12), points=True):
-    x = np.linspace(r[0], r[1], 51)
+    x = np.linspace(r[0], r[1], 101)
     y = func(x)
     
     plt.plot(x, y, label=func.prettifyLatex())
@@ -578,11 +596,15 @@ def f4(x):
 def f5(x):
     return 6*x**3 + 2*x**2 + 5*x + 2
 
+def f6(x):
+    return np.sin(x+2)+1
+
 if __name__ == "__main__":
-    testx = np.linspace(-10, 10, 15)
+    area = (0, 20)
+    testx = np.linspace(area[0], area[1], 201)
     #testx = list(range(12))
     #testy = [42572, 47474, 51315, 53043, 54112, 60528, 70585, 75781, 76281, 78861, 83304, 92213]
-    testy = f5(testx)
+    testy = f6(testx)
     
     #a = parsePolynomial("x^2 - 2ab")
     #print(a.prettify())
@@ -593,7 +615,7 @@ if __name__ == "__main__":
     #answer = solveEquations([a, b])
     #print(answer)
     
-    plotFunction(polynomial(3, testx, testy, rate=10000000000))
+    plotFunction(sine(testx, testy, rate=0.01), r=area)
     #plotFunction(polynomial(3, testx, testy))
     plt.show()
 
